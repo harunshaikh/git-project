@@ -1,0 +1,42 @@
+# Note: The top-level 'version' property is now obsolete in the modern Docker Compose specification.
+name: my-web-app
+
+services:
+  # 1. Frontend / Web Application Service
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:5000" # Maps port 8080 on your host to port 5000 inside the container
+    volumes:
+      - .:/code # Mounts current host directory into the container for live-reloading
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://postgres:secret_password@db:5432/mydb
+    depends_on:
+      db:
+        condition: service_healthy # Waits for the DB to be healthy before starting
+      redis:
+        condition: service_started
+
+  # 2. Database Service
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_password
+      POSTGRES_DB: mydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data # Persists database data even if the container drops
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Cache Service
+  redis:
+    image: redis:7-alpine
